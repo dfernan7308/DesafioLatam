@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  ImageURI:
+    Type: String
+    Description: 474668387337.dkr.ecr.us-east-1.amazonaws.com/simple-docker-service-12ac1fb79e9b:flask-app
+
+Resources:
+  # IAM Role para que las tareas puedan ejecutarse
+  FargateTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # Definición del Task
+  FargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: "256"                # 0.25 vCPU
+      Memory: "512"             # 0.5 GB RAM
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt FargateTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: my-container    # Nombre del contenedor
+          Image: !Ref ImageURI
+          PortMappings:
+            - ContainerPort: 80 # Puerto que expone el contenedor
+              Protocol: tcp
+          Essential: true
+
+  # Cluster ECS
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: MyECSCluster
+
+  # Security Group para permitir tráfico HTTP
+  ECSFargateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Permitir tráfico HTTP al contenedor"
+      VpcId: vpc-0a71831e5956ecce3  # Cambia esto por el ID de tu VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/16
+
+  # Servicio ECS para ejecutar el Task Definition en el Cluster
+  ECSFargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      LaunchType: FARGATE
+      DesiredCount: 1  # Número de tareas deseadas
+      TaskDefinition: !Ref FargateTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-0c550b8bf5fe1270e  # Cambia esto por tus subnets
+            - subnet-0efb735d2b2533f9c
+          SecurityGroups:
+            - !Ref ECSFargateSecurityGroup
+
+Outputs:
+  TaskDefinitionArn:
+    Description: "ARN del Task Definition"
+    Value: !Ref FargateTaskDefinition
+
+  ECSClusterName:
+    Description: "Nombre del Cluster ECS"
+    Value: !Ref ECSCluster
+
+  ECSFargateServiceName:
+    Description: "Nombre del Servicio ECS"
+    Value: !GetAtt ECSFargateService.Name

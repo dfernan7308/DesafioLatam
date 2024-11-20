@@ -1,0 +1,48 @@
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # O la rama que quieras usar para despliegues
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'  # O la versión que estés usando
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Build Docker image
+      run: |
+        docker build -t flask-app .
+
+    - name: Run tests (si tienes pruebas)
+      run: |
+        # Si tienes tests, ejecuta tus tests aquí. Por ejemplo:
+        pytest
+
+    - name: Push Docker image to Docker Hub
+      run: |
+        docker tag flask-app yourdockerhubusername/flask-app:latest
+        docker push yourdockerhubusername/flask-app:latest
+      env:
+        DOCKER_USERNAME: dfernandez10
+        DOCKER_PASSWORD: POI09poi.
+
+    - name: Deploy to cloud
+      run: |
+        # Aquí podrías desplegar tu aplicación a un servicio como AWS, Heroku, etc.
+        # Dependiendo del proveedor, los comandos de despliegue serán diferentes.
